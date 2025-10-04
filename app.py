@@ -75,12 +75,6 @@ def slack_command():
     response_url = request.form.get("response_url")
     trigger_id = request.form.get("trigger_id")
     
-    # Acknolwedge receipt of command
-    ack_msg = {
-        "response_type": "in_channel",
-        "text": f"Hi <@{user_name}>! Your request is being processed. I'll update you here when it's done :hourglass_flowing_sand:"
-    }
-    requests.post(response_url, json=ack_msg)
     
     # Kick off async worker
     threading.Thread(
@@ -89,7 +83,10 @@ def slack_command():
         daemon=True,
     ).start()
 
-    return jsonify({}), 200
+    return jsonify({
+        "response_type": "in_channel",
+        "text": f"Olá <@{user_name}>! Sua pergunta foi recebida com sucesso. Será respondida aqui quando estiver pronta!"
+    }), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)

@@ -109,8 +109,8 @@ def handle_databricks_request(app, response_url: str, text: str):
             
             # Post back to Slack using response_url
             resp = requests.post(response_url, json=text_json, timeout=15)
-            return jsonify({"Result": resp.status_code, "text": text_json})
+            return jsonify({"Result": resp.status_code, "text": text_json}), 200
 
 
-    return jsonify({"Status": resp.get("status")})
+    return jsonify({"Status": resp.get("status")}), 200
 
