@@ -74,14 +74,7 @@ def slack_command():
     is_enterprise_install = request.form.get("is_enterprise_install")
     response_url = request.form.get("response_url")
     trigger_id = request.form.get("trigger_id")
-    
-    # Acknolwedge receipt of command
-    ack_msg = {
-        "response_type": "in_channel",
-        "text": f"Hi <@{user_name}>! Your request is being processed. I'll update you here when it's done :hourglass_flowing_sand:"
-    }
-    requests.post(response_url, json=ack_msg)
-    
+
     # Kick off async worker
     threading.Thread(
         target=handle_databricks_request,
@@ -89,7 +82,10 @@ def slack_command():
         daemon=True,
     ).start()
 
-    return jsonify({}), 200
+    return jsonify({        
+        "response_type": "in_channel",
+        "text": f"Hi <@{user_name}>! Your request is being processed. I'll update you here when it's done :hourglass_flowing_sand:"
+    }), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
