@@ -20,14 +20,13 @@ SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET")
 
 def verify_slack_request(req):
     """Verify that the request comes from Slack."""
-    # timestamp = req.headers.get("X-Slack-Request-Timestamp")
-    timestamp = time.time()
+    timestamp = req.headers.get("X-Slack-Request-Timestamp")
     slack_signature = req.headers.get("X-Slack-Signature")
     # logging.error("Timestamp: %s", timestamp)
     # logging.error("Slack Signature: %s", slack_signature)
   
     if abs(time.time() - int(timestamp)) > 60 * 5:
-        # Too old, possible replay attack                                                                                                                                                                                                      
+        # Too old, possible replay attack
         return False
     sig_basestring = f"v0:{timestamp}:{req.get_data(as_text=True)}"
     my_signature = "v0=" + hmac.new(
@@ -46,17 +45,16 @@ def verify_slack_request(req):
 def slack_command():
 
     logging.error("VER: %s", verify_slack_request(request))
-    # if not verify_slack_request(request):
-    #    abort(400, "Invalid request signature")
+    if not verify_slack_request(request):
+        abort(400, "Invalid request signature")
 
     # Parse DATA safely
     data = request.get_data()
-    # logging.error("DATA: %s", data)
+    logging.error("DATA: %s", data)
     if not data:
         abort(400, "Invalid payload")
 
-
-    # Parse form data                                                                                                                                                                                                                          
+    # Parse form data
     token = request.form.get("token")
     team_id = request.form.get("team_id")
     team_domain = request.form.get("team_domain")
@@ -75,18 +73,23 @@ def slack_command():
     response_url = request.form.get("response_url")
     trigger_id = request.form.get("trigger_id")
     
-    
-    # Kick off async worker
-    threading.Thread(
-        target=handle_databricks_request,
-        args=(app, response_url, text),
-        daemon=True,
-    ).start()
-
-    return jsonify({
+    # Post back to Slack using response_url
+    requests.post(response_url,json={
         "response_type": "in_channel",
         "text": f"Olá <@{user_name}>! Sua pergunta foi recebida com sucesso. Será respondida aqui quando estiver pronta!"
-    }), 200
+    })
+
+    
+    text = handle_databricks_request(app, response_url, text)
+
+    print("text",text)
+
+
+    requests.post(response_url,json={
+        "response_type": "in_channel",
+        "text": f"{text.get("content",{})}"
+    })
+    return jsonify(text.get("content")), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
