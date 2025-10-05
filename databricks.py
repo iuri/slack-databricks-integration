@@ -89,22 +89,33 @@ def handle_databricks_request(app, response_url: str, text: str):
         
         # Step 2: Poll until completed
         resp = poll_conversation(SPACE_ID, conv_id, msg_id)
-        # logging.error("Final result: %s", resp)
+        logging.error("Final result: %s", resp)
 
         # Step 3. Get the result text
         if resp.get("status") == "COMPLETED":
             attachments = resp.get("attachments", [])
             query = attachments[0].get("query", {}) if attachments else {}
             if query:
+                print("QUERY ", query)
+                query_desc = query.get("description",{})
+                print("QUERY DESC", query_desc)
+
                 attachment_id = attachments[0].get("attachment_id") if attachments else None
-                # logging.error("Attachment ID: %s", attachment_id)
-                resp = conversation_results(SPACE_ID, conv_id, msg_id, attachment_id)
-                attachments = resp.get("attachments", [])
-                # logging.error("Final data: %s", resp)
-                    
+                logging.error("Attachment ID: %s", attachment_id)
+
+                statement_id = query.get("statement_id", {})
+                print("StamentID: ", statement_id)
+                if statement_id:
+                    resp = conversation_results(SPACE_ID, conv_id, msg_id, attachment_id)
+                    statement = resp.get("statement_response", {})
+                    if statement:
+                        return statement, query_desc
+         
             text_json = attachments[0].get("text", {}) if attachments else {}
             logging.error("Text: %s", text_json)
-            return text_json
+           
             
-    return jsonify({"Status": resp.get("status")})
+            return text_json, ''
+            
+    return jsonify({"Status": resp.get("status")}), ''
 

@@ -35,22 +35,64 @@ def verify_slack_request(req):
         hashlib.sha256
     ).hexdigest()
 
-    logging.error("SIG: %s, %s", my_signature, slack_signature)
+    # logging.error("SIG: %s, %s", my_signature, slack_signature)
 
     return hmac.compare_digest(my_signature, slack_signature)
+
+
+
+
+def format_response(response: dict) -> str:
+    try:
+        if response.get("manifest", {}):
+            columns = [col["name"] for col in response["manifest"]["schema"]["columns"]]
+            rows = response["result"]["data_array"]
+
+            # Format as a simple table for Slack
+            header = " | ".join(columns)
+            divider = "-|-".join(["-" * len(c) for c in columns])
+            lines = [header, divider]
+
+            for row in rows:
+                line = " | ".join(str(v) for v in row)
+                lines.append(line)
+
+            return "```\n" + "\n".join(lines) + "\n```"
+        
+        else:
+            return "```\n" + response.get("content",{}) + "\n```"
+        
+    except Exception as e:
+        return f"⚠️ Could not parse result: {e}"
+
+
+
+def send_result_to_slack(response_url: str, response: dict, query: str):
+    text_table = format_response(response)
+
+    message = {
+        "response_type": "in_channel",
+        "text": f"📊 Pergunta: `{query}`:\n{text_table}"
+    }
+
+    resp = requests.post(response_url, json=message)
+    resp.raise_for_status()
+    print("RESP", resp)
+    return jsonify(message.get("text"))
+
 
 
 
 @app.route("/slack/command", methods=["POST", "GET"])
 def slack_command():
 
-    logging.error("VER: %s", verify_slack_request(request))
+    # logging.error("VER: %s", verify_slack_request(request))
     if not verify_slack_request(request):
         abort(400, "Invalid request signature")
 
     # Parse DATA safely
     data = request.get_data()
-    logging.error("DATA: %s", data)
+    # logging.error("DATA: %s", data)
     if not data:
         abort(400, "Invalid payload")
 
@@ -80,17 +122,16 @@ def slack_command():
     })
 
     
-    text = handle_databricks_request(app, response_url, text)
+    response, query = handle_databricks_request(app, response_url, text)
 
-    print("text",text)
+    print("Response", response)
+    print("Query", query)
+    if not query:
+        query = text
 
-
-    requests.post(response_url,json={
-        "response_type": "in_channel",
-        "text": f"{text.get("content",{})}"
-    })
-    return jsonify(text.get("content")), 200
-
+    result = send_result_to_slack(response_url, response, query)
+    
+    return result, 200
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
 
