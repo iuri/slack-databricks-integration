@@ -92,10 +92,16 @@ def slack_command():
 
     # Parse DATA safely
     data = request.get_data()
-    # logging.error("DATA: %s", data)
+    
+    logging.error("DATA: %s", data)
     if not data:
         abort(400, "Invalid payload")
 
+
+    # print("FILES ", request.files)
+
+    # print('JSON ', request.json)
+    
     # Parse form data
     token = request.form.get("token")
     team_id = request.form.get("team_id")
